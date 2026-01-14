@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Read Aloud</title>
+    <meta name="description" content="Read Aloud is a lightweight text-to-speech reader with auto language detection and chunked playback.">
+    <meta name="author" content="SPACESODA">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://spacesoda.github.io/read-aloud">
+    <meta name="theme-color" content="#0A84FF">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Read Aloud">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta property="og:title" content="Read Aloud">
+    <meta property="og:description" content="A lightweight text-to-speech reader with auto language detection and chunked playback.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://spacesoda.github.io/read-aloud">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="icons/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16x16.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/android-chrome-192x192.png">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Read Aloud</h1>
+        </header>
+
+        <main>
+            <div id="chunk-display" class="chunk-display hidden"></div>
+            <div class="input-area">
+                <textarea id="text-input" placeholder="Paste your text here..."></textarea>
+            </div>
+
+            <div class="controls-area">
+                <div class="voice-select-wrapper">
+                    <select id="voice-select" aria-label="Voice selection">
+                        <option value="" disabled selected>Loading voices...</option>
+                    </select>
+                    <div class="auto-detect">
+                        <label for="auto-detect">
+                            <input type="checkbox" id="auto-detect" checked>
+                            Auto-detect language
+                        </label>
+                        <span id="detected-lang" class="detected-lang"></span>
+                    </div>
+                </div>
+
+                <div class="playback-controls">
+                    <button id="btn-rewind" class="btn btn-secondary" aria-label="Previous Section">
+                        <svg viewBox="0 0 24 24" fill="currentColor" class="icon">
+                            <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" />
+                        </svg>
+                    </button>
+                    <button id="btn-play-pause" class="btn btn-primary" aria-label="Play">
+                        <svg viewBox="0 0 24 24" fill="currentColor" class="icon icon-play">
+                            <path d="M8 5v14l11-7z" />
+                        </svg>
+                        <svg viewBox="0 0 24 24" fill="currentColor" class="icon icon-pause hidden">
+                            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                        </svg>
+                    </button>
+                    <button id="btn-stop" class="btn btn-secondary" aria-label="Stop" disabled>
+                        <svg viewBox="0 0 24 24" fill="currentColor" class="icon">
+                            <path d="M6 6h12v12H6z" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+    <noscript>This app needs JavaScript enabled to run.</noscript>
+    <script src="app.js" defer></script>
+</body>
+
+</html>
