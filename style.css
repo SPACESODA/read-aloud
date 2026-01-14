@@ -49,20 +49,26 @@ body {
 
 header {
     padding-bottom: 20px;
-    text-align: center;
+    text-align: left;
+}
+
+header .header-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
 }
 
 header h1 {
-    font-size: 1.2rem;
+    font-size: 1.15rem;
     font-weight: 600;
     letter-spacing: 0.05em;
     color: var(--text-secondary);
     margin: 0;
-    text-transform: uppercase;
     display: inline-flex;
     align-items: center;
     gap: 10px;
-    justify-content: center;
+    justify-content: flex-start;
 }
 
 .app-logo {
@@ -70,6 +76,32 @@ header h1 {
     height: 24px;
     border-radius: 6px;
     display: block;
+}
+
+.github-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    text-decoration: none;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.github-link:hover,
+.github-link:focus-visible {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.18);
+}
+
+.github-icon {
+    width: 18px;
+    height: 18px;
 }
 
 main {
@@ -89,6 +121,7 @@ main {
     display: flex;
     flex-direction: column;
     min-height: 0;
+    gap: 8px;
 }
 
 textarea {
@@ -107,6 +140,13 @@ textarea {
     transition: border-color 0.2s;
     overflow-wrap: anywhere;
     word-break: break-word;
+}
+
+.helper-text {
+    margin: 0;
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
 }
 
 textarea:focus {
@@ -138,9 +178,11 @@ textarea:focus {
 }
 
 .input-area {
+    flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    min-height: 0;
+    gap: 8px;
 }
 
 .voice-select-wrapper {

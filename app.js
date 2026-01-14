@@ -28,6 +28,7 @@ class SpeechApp {
         this.voiceSelect = document.getElementById('voice-select');
         this.autoDetectToggle = document.getElementById('auto-detect');
         this.autoDetectText = document.getElementById('auto-detect-text');
+        this.chromeTip = document.getElementById('chrome-tip');
         this.chunkDisplay = document.getElementById('chunk-display');
         this.btnPlayPause = document.getElementById('btn-play-pause');
         this.btnRewind = document.getElementById('btn-rewind');
@@ -44,6 +45,7 @@ class SpeechApp {
         this.restoreFromStorage();
         this.addEventListeners();
         this.registerServiceWorker();
+        this.updateChromeTipVisibility();
 
         if (!this.isSpeechSupported) {
             this.disableSpeechUI();
@@ -117,6 +119,33 @@ class SpeechApp {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('./sw.js').catch(() => {});
         });
+    }
+
+    updateChromeTipVisibility() {
+        if (!this.chromeTip) return;
+        this.chromeTip.hidden = this.isChromeBrowser();
+    }
+
+    isChromeBrowser() {
+        const ua = navigator.userAgent || '';
+        const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        if (isIOS) {
+            return false;
+        }
+
+        const uaData = navigator.userAgentData;
+        if (uaData && Array.isArray(uaData.brands)) {
+            const brands = uaData.brands.map((entry) => entry.brand.toLowerCase());
+            const isChromium = brands.some((brand) => brand.includes('chromium') || brand.includes('chrome'));
+            const isEdge = brands.some((brand) => brand.includes('edge'));
+            const isOpera = brands.some((brand) => brand.includes('opera'));
+            return isChromium && !isEdge && !isOpera;
+        }
+
+        const isChrome = /Chrome|CriOS/.test(ua);
+        const isEdge = /Edg\//.test(ua);
+        const isOpera = /OPR\//.test(ua);
+        return isChrome && !isEdge && !isOpera;
     }
 
     getStorage() {
