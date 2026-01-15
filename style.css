@@ -258,6 +258,10 @@ select {
     flex-shrink: 0;
 }
 
+.btn:focus {
+    outline: none;
+}
+
 .btn:disabled {
     opacity: 0.3;
     cursor: not-allowed;
