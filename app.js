@@ -96,6 +96,38 @@ class SpeechApp {
         if (this.autoDetectToggle) {
             this.autoDetectToggle.addEventListener('change', () => this.handleAutoDetectToggle());
         }
+        document.addEventListener('keydown', (event) => this.handleGlobalKeydown(event));
+    }
+
+    handleGlobalKeydown(event) {
+        if (!event || event.defaultPrevented) return;
+        if (event.ctrlKey || event.metaKey || event.altKey) return;
+        if (event.repeat) return;
+        if (this.isTypingTarget(event.target)) return;
+
+        if (event.key === ' ' || event.key === 'Spacebar') {
+            event.preventDefault();
+            this.togglePlayPause();
+            return;
+        }
+
+        if (event.key === 'ArrowLeft') {
+            event.preventDefault();
+            this.handleRewind();
+            return;
+        }
+
+        if (event.key === 'ArrowRight') {
+            event.preventDefault();
+            this.handleSkipForward();
+        }
+    }
+
+    isTypingTarget(target) {
+        if (!target) return false;
+        if (target.isContentEditable) return true;
+        const tagName = target.tagName ? target.tagName.toLowerCase() : '';
+        return tagName === 'input' || tagName === 'textarea' || tagName === 'select';
     }
 
     disableSpeechUI() {
@@ -117,8 +149,20 @@ class SpeechApp {
     registerServiceWorker() {
         if (!('serviceWorker' in navigator)) return;
         window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js').catch(() => {});
+            navigator.serviceWorker
+                .register('./sw.js')
+                .then((registration) => this.enableServiceWorkerUpdates(registration))
+                .catch(() => {});
         });
+    }
+
+    enableServiceWorkerUpdates(registration) {
+        if (!registration || typeof registration.update !== 'function') return;
+        const updateRegistration = () => {
+            registration.update().catch(() => {});
+        };
+        updateRegistration();
+        window.addEventListener('online', updateRegistration);
     }
 
     updateChromeTipVisibility() {
@@ -860,6 +904,26 @@ class SpeechApp {
         // Decrement index (Rewind one section)
         if (this.currentChunkIndex > 0) {
             this.currentChunkIndex--;
+        }
+
+        this.saveProgressToStorage();
+        this.isPaused = false;
+        this.updateButtonsState();
+        this.scheduleSpeak();
+    }
+
+    handleSkipForward() {
+        if (!this.isSpeechSupported) return;
+        if (!this.isPlaying) return;
+
+        this.cancelPlayback();
+
+        const lastIndex = Math.max(this.chunks.length - 1, 0);
+        if (this.currentChunkIndex < lastIndex) {
+            this.currentChunkIndex++;
+        } else {
+            this.handleStop();
+            return;
         }
 
         this.saveProgressToStorage();
