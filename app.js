@@ -18,12 +18,21 @@ class SpeechApp {
         this.voiceFilterLang = '';
         this.detectedLang = '';
         this.lastVoiceRefreshAt = 0;
+        // Clear-confirm state for the Paste/Clear button.
+        this.isClearConfirm = false;
+        this.clearConfirmTimeoutId = null;
+        this.clearConfirmStartedAt = 0;
+        this.clearConfirmRemainingMs = 0;
+        // Multi-slot storage (1-5) for independent text/progress.
+        this.slotCount = 5;
+        this.activeSlot = 1;
+        this.slots = this.createDefaultSlots();
 
         this.storage = this.getStorage();
         this.storageEnabled = Boolean(this.storage);
         this.storageKeys = {
-            text: 'speechApp:text',
-            progress: 'speechApp:progress',
+            slots: 'speechApp:slots',
+            activeSlot: 'speechApp:activeSlot',
             voicePrefs: 'speechApp:voicePrefs'
         };
         this.voicePreferences = {};
@@ -35,13 +44,17 @@ class SpeechApp {
         this.autoDetectToggle = document.getElementById('auto-detect');
         this.autoDetectText = document.getElementById('auto-detect-text');
         this.chromeTip = document.getElementById('chrome-tip');
+        this.btnPaste = document.getElementById('btn-paste');
         this.chunkDisplay = document.getElementById('chunk-display');
         this.btnPlayPause = document.getElementById('btn-play-pause');
         this.btnRewind = document.getElementById('btn-rewind');
+        this.btnForward = document.getElementById('btn-forward');
         this.btnStop = document.getElementById('btn-stop');
         this.iconPlay = this.btnPlayPause ? this.btnPlayPause.querySelector('.icon-play') : null;
         this.iconPause = this.btnPlayPause ? this.btnPlayPause.querySelector('.icon-pause') : null;
         this.autoDetectLabelText = this.autoDetectText ? this.autoDetectText.textContent.trim() : 'Auto-detect language';
+        // Slot buttons are optional if markup is removed.
+        this.slotButtons = Array.from(document.querySelectorAll('.slot-button'));
 
         this.init();
     }
@@ -52,6 +65,9 @@ class SpeechApp {
         this.addEventListeners();
         this.registerServiceWorker();
         this.updateChromeTipVisibility();
+        // Update UI state after storage restore.
+        this.updateSlotButtons();
+        this.updatePasteButtonState();
 
         if (!this.isSpeechSupported) {
             this.disableSpeechUI();
@@ -130,6 +146,25 @@ class SpeechApp {
     addEventListeners() {
         this.btnPlayPause.addEventListener('click', () => this.togglePlayPause());
         this.btnRewind.addEventListener('click', () => this.handleRewind());
+        if (this.btnForward) {
+            this.btnForward.addEventListener('click', () => this.handleSkipForward());
+        }
+        if (this.btnPaste) {
+            this.btnPaste.addEventListener('click', () => this.handlePasteButtonClick());
+            // Pause confirm timeout while the button is hovered or focused.
+            this.btnPaste.addEventListener('mouseenter', () => this.pauseClearConfirmTimer());
+            this.btnPaste.addEventListener('mouseleave', () => this.resumeClearConfirmTimer());
+            this.btnPaste.addEventListener('focus', () => this.pauseClearConfirmTimer());
+            this.btnPaste.addEventListener('blur', () => this.resumeClearConfirmTimer());
+        }
+        if (this.slotButtons.length > 0) {
+            this.slotButtons.forEach((button) => {
+                button.addEventListener('click', () => {
+                    const slot = Number.parseInt(button.getAttribute('data-slot'), 10);
+                    this.switchSlot(slot);
+                });
+            });
+        }
         this.btnStop.addEventListener('click', () => this.handleStop());
         this.textInput.addEventListener('input', () => this.handleTextInputChange());
         if (this.voiceSelect) {
@@ -153,6 +188,8 @@ class SpeechApp {
         if (event.ctrlKey || event.metaKey || event.altKey) return;
         if (event.repeat) return;
         if (this.isTypingTarget(event.target)) return;
+        // Let focused buttons/links handle Space/Arrow keys, except the active slot button.
+        if (this.isInteractiveTarget(event.target) && !this.isActiveSlotButtonTarget(event.target)) return;
 
         if (event.key === ' ' || event.key === 'Spacebar') {
             event.preventDefault();
@@ -179,6 +216,17 @@ class SpeechApp {
         return tagName === 'input' || tagName === 'textarea' || tagName === 'select';
     }
 
+    isInteractiveTarget(target) {
+        if (!target || !target.closest) return false;
+        // Covers buttons, links, and custom button roles (e.g., slot buttons).
+        return Boolean(target.closest('button, a, [role="button"]'));
+    }
+
+    isActiveSlotButtonTarget(target) {
+        if (!target || !target.closest) return false;
+        return Boolean(target.closest('.slot-button.is-active'));
+    }
+
     disableSpeechUI() {
         // Gracefully handle browsers without the SpeechSynthesis API.
         if (this.voiceSelect) {
@@ -192,6 +240,7 @@ class SpeechApp {
 
         if (this.btnPlayPause) this.btnPlayPause.disabled = true;
         if (this.btnRewind) this.btnRewind.disabled = true;
+        if (this.btnForward) this.btnForward.disabled = true;
         if (this.btnStop) this.btnStop.disabled = true;
     }
 
@@ -219,6 +268,116 @@ class SpeechApp {
         this.chromeTip.hidden = this.isChromeBrowser();
     }
 
+    resetClearConfirm() {
+        if (!this.isClearConfirm) return;
+        this.isClearConfirm = false;
+        if (this.clearConfirmTimeoutId) {
+            clearTimeout(this.clearConfirmTimeoutId);
+            this.clearConfirmTimeoutId = null;
+        }
+        this.clearConfirmStartedAt = 0;
+        this.clearConfirmRemainingMs = 0;
+    }
+
+    scheduleClearConfirmTimeout(durationMs) {
+        if (this.clearConfirmTimeoutId) {
+            clearTimeout(this.clearConfirmTimeoutId);
+        }
+        // If the timer expired while paused, reset immediately.
+        if (durationMs <= 0) {
+            this.resetClearConfirm();
+            this.updatePasteButtonState();
+            return;
+        }
+        this.clearConfirmStartedAt = Date.now();
+        this.clearConfirmRemainingMs = durationMs;
+        this.clearConfirmTimeoutId = setTimeout(() => {
+            this.isClearConfirm = false;
+            this.clearConfirmTimeoutId = null;
+            this.clearConfirmStartedAt = 0;
+            this.clearConfirmRemainingMs = 0;
+            this.updatePasteButtonState();
+        }, durationMs);
+    }
+
+    pauseClearConfirmTimer() {
+        if (!this.isClearConfirm || !this.clearConfirmTimeoutId) return;
+        // Preserve remaining time so hover/focus doesn't burn the countdown.
+        const elapsed = Date.now() - this.clearConfirmStartedAt;
+        this.clearConfirmRemainingMs = Math.max(0, this.clearConfirmRemainingMs - elapsed);
+        clearTimeout(this.clearConfirmTimeoutId);
+        this.clearConfirmTimeoutId = null;
+        this.clearConfirmStartedAt = 0;
+    }
+
+    resumeClearConfirmTimer() {
+        if (!this.isClearConfirm || this.clearConfirmTimeoutId) return;
+        // Resume from the remaining time.
+        if (this.clearConfirmRemainingMs <= 0) {
+            this.resetClearConfirm();
+            this.updatePasteButtonState();
+            return;
+        }
+        this.scheduleClearConfirmTimeout(this.clearConfirmRemainingMs);
+    }
+
+    startClearConfirm() {
+        this.isClearConfirm = true;
+        // Give the user a short window to confirm clearing.
+        this.scheduleClearConfirmTimeout(5000);
+        this.updatePasteButtonState();
+    }
+
+    updatePasteButtonState() {
+        if (!this.btnPaste || !this.textInput) return;
+        const hasText = this.textInput.value.length > 0;
+        if (!hasText) {
+            this.resetClearConfirm();
+        }
+        const isConfirm = hasText && this.isClearConfirm;
+        this.btnPaste.textContent = hasText ? (isConfirm ? 'Confirm to Clear' : 'Clear') : 'Paste';
+        this.btnPaste.setAttribute(
+            'aria-label',
+            hasText ? (isConfirm ? 'Confirm clear content' : 'Clear content') : 'Paste from clipboard'
+        );
+        this.btnPaste.classList.toggle('is-confirm', isConfirm);
+    }
+
+    async handlePasteButtonClick() {
+        if (!this.textInput) return;
+        const hasText = this.textInput.value.length > 0;
+        if (hasText) {
+            if (!this.isClearConfirm) {
+                this.startClearConfirm();
+                this.textInput.focus();
+                return;
+            }
+            this.resetClearConfirm();
+            this.textInput.value = '';
+            this.handleTextInputChange();
+            this.textInput.focus();
+            return;
+        }
+
+        this.resetClearConfirm();
+        if (!navigator.clipboard || typeof navigator.clipboard.readText !== 'function') {
+            this.textInput.focus();
+            return;
+        }
+
+        try {
+            const text = await navigator.clipboard.readText();
+            if (text) {
+                this.textInput.value = text;
+                this.handleTextInputChange();
+            }
+            this.textInput.focus();
+        } catch (error) {
+            console.warn('Clipboard read failed', error);
+            this.textInput.focus();
+        }
+    }
+
     isChromeBrowser() {
         const ua = navigator.userAgent || '';
         const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -229,16 +388,16 @@ class SpeechApp {
         const uaData = navigator.userAgentData;
         if (uaData && Array.isArray(uaData.brands)) {
             const brands = uaData.brands.map((entry) => entry.brand.toLowerCase());
-            const isChromium = brands.some((brand) => brand.includes('chromium') || brand.includes('chrome'));
-            const isEdge = brands.some((brand) => brand.includes('edge'));
-            const isOpera = brands.some((brand) => brand.includes('opera'));
-            return isChromium && !isEdge && !isOpera;
+            const isEdge = brands.some((brand) => brand.includes('microsoft edge') || brand === 'edge');
+            const isChromeBrand = brands.some((brand) => brand.includes('google chrome'));
+            return isEdge || isChromeBrand;
         }
 
-        const isChrome = /Chrome|CriOS/.test(ua);
-        const isEdge = /Edg\//.test(ua);
-        const isOpera = /OPR\//.test(ua);
-        return isChrome && !isEdge && !isOpera;
+        const isEdge = /Edg\//.test(ua) || /Edge\//.test(ua);
+        const vendor = (navigator.vendor || '').toLowerCase();
+        const isGoogleVendor = vendor.includes('google');
+        const isChrome = /Chrome|CriOS/.test(ua) && !isEdge && isGoogleVendor;
+        return isEdge || isChrome;
     }
 
     getStorage() {
@@ -254,41 +413,189 @@ class SpeechApp {
         }
     }
 
-    restoreFromStorage() {
+    createDefaultSlot() {
+        return {
+            text: '',
+            progress: 0,
+            playStatus: 'stopped'
+        };
+    }
+
+    createDefaultSlots() {
+        return Array.from({ length: this.slotCount }, () => this.createDefaultSlot());
+    }
+
+    normalizeSlotNumber(value) {
+        const parsed = Number.parseInt(value, 10);
+        if (!Number.isFinite(parsed)) return 1;
+        if (parsed < 1 || parsed > this.slotCount) return 1;
+        return parsed;
+    }
+
+    sanitizeSlot(slot) {
+        const next = this.createDefaultSlot();
+        if (!slot || typeof slot !== 'object') return next;
+        if (typeof slot.text === 'string') {
+            next.text = slot.text;
+        }
+        if (Number.isFinite(slot.progress)) {
+            next.progress = Math.max(0, slot.progress);
+        }
+        if (typeof slot.playStatus === 'string') {
+            next.playStatus = slot.playStatus;
+        }
+        return next;
+    }
+
+    loadSlotsFromStorage() {
         if (!this.storage) return;
-
-        let storedText = null;
+        let storedSlots = null;
         try {
-            storedText = this.storage.getItem(this.storageKeys.text);
+            storedSlots = this.storage.getItem(this.storageKeys.slots);
         } catch (error) {
             this.storageEnabled = false;
-            return;
-        }
-        if (storedText !== null) {
-            this.textInput.value = storedText;
-            this.lastStoredText = storedText;
-        } else {
-            this.lastStoredText = this.textInput.value;
         }
 
-        let storedProgress = null;
-        try {
-            storedProgress = this.storage.getItem(this.storageKeys.progress);
-        } catch (error) {
-            this.storageEnabled = false;
-            return;
-        }
-        if (storedProgress) {
+        let slots = null;
+        if (storedSlots) {
             try {
-                const parsed = JSON.parse(storedProgress);
-                if (parsed && parsed.text === this.textInput.value && Number.isFinite(parsed.index)) {
-                    this.currentChunkIndex = Math.max(0, parsed.index);
+                const parsed = JSON.parse(storedSlots);
+                if (Array.isArray(parsed)) {
+                    slots = parsed.map((slot) => this.sanitizeSlot(slot));
                 }
             } catch (error) {
-                // Ignore invalid progress payloads.
+                slots = null;
             }
         }
 
+        if (!slots) {
+            slots = this.createDefaultSlots();
+            this.safeSetItem(this.storageKeys.slots, JSON.stringify(slots));
+        }
+
+        let normalizedSlots = false;
+        if (slots.length < this.slotCount) {
+            const needed = this.slotCount - slots.length;
+            for (let i = 0; i < needed; i += 1) {
+                slots.push(this.createDefaultSlot());
+            }
+            normalizedSlots = true;
+        } else if (slots.length > this.slotCount) {
+            slots = slots.slice(0, this.slotCount);
+            normalizedSlots = true;
+        }
+
+        this.slots = slots;
+        if (normalizedSlots) {
+            this.saveSlotsToStorage();
+        }
+
+        let storedActiveSlot = null;
+        try {
+            storedActiveSlot = this.storage.getItem(this.storageKeys.activeSlot);
+        } catch (error) {
+            this.storageEnabled = false;
+        }
+        this.activeSlot = this.normalizeSlotNumber(storedActiveSlot);
+        this.safeSetItem(this.storageKeys.activeSlot, String(this.activeSlot));
+    }
+
+    cleanupLegacyStorage() {
+        if (!this.storage) return;
+        try {
+            if (!this.storage.getItem(this.storageKeys.slots)) return;
+            this.storage.removeItem('speechApp:text');
+            this.storage.removeItem('speechApp:progress');
+        } catch (error) {
+            this.storageEnabled = false;
+        }
+    }
+
+    saveSlotsToStorage() {
+        this.safeSetItem(this.storageKeys.slots, JSON.stringify(this.slots));
+    }
+
+    getSlotState(slotNumber) {
+        const normalized = this.normalizeSlotNumber(slotNumber);
+        return this.slots[normalized - 1] || null;
+    }
+
+    applySlotState(slotNumber) {
+        if (!this.textInput) return;
+        const slot = this.getSlotState(slotNumber);
+        if (!slot) return;
+
+        this.resetClearConfirm();
+        this.textInput.value = slot.text || '';
+        this.lastStoredText = this.textInput.value;
+        this.currentChunkIndex = Number.isFinite(slot.progress) ? Math.max(0, slot.progress) : 0;
+        this.chunks = [];
+        this.updateChunkDisplay('');
+        this.updateButtonsState();
+        this.updatePasteButtonState();
+        this.applyAutoDetectIfNeeded({ force: true });
+    }
+
+    persistActiveSlotState(statusOverride) {
+        if (!this.textInput) return;
+        const slot = this.getSlotState(this.activeSlot);
+        if (!slot) return;
+        slot.text = this.textInput.value;
+        slot.progress = this.currentChunkIndex;
+        slot.playStatus = statusOverride || this.getCurrentPlayStatus();
+        this.saveSlotsToStorage();
+    }
+
+    updateSlotButtons() {
+        if (this.slotButtons.length === 0) return;
+        this.slotButtons.forEach((button) => {
+            const slot = Number.parseInt(button.getAttribute('data-slot'), 10);
+            const isActive = slot === this.activeSlot;
+            button.classList.toggle('is-active', isActive);
+            button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
+    }
+
+    getCurrentPlayStatus() {
+        if (this.isPlaying && !this.isPaused) return 'playing';
+        if (this.isPaused) return 'paused';
+        return 'stopped';
+    }
+
+    setPlayStatus(status) {
+        const slot = this.getSlotState(this.activeSlot);
+        if (!slot) return;
+        slot.playStatus = status;
+        this.saveSlotsToStorage();
+    }
+
+    stopPlaybackForSlotSwitch() {
+        if (!this.isPlaying && !this.isPaused) return;
+        this.cancelPlayback();
+        this.isPlaying = false;
+        this.isPaused = false;
+        this.updateButtonsState();
+        this.updateChunkDisplay('');
+    }
+
+    switchSlot(slotNumber) {
+        const normalized = this.normalizeSlotNumber(slotNumber);
+        if (normalized === this.activeSlot) return;
+        // Save the current slot and stop audio before switching.
+        const shouldPause = this.isPlaying && !this.isPaused;
+        this.persistActiveSlotState(shouldPause ? 'paused' : null);
+        this.stopPlaybackForSlotSwitch();
+        this.activeSlot = normalized;
+        this.safeSetItem(this.storageKeys.activeSlot, String(this.activeSlot));
+        this.applySlotState(this.activeSlot);
+        this.updateSlotButtons();
+    }
+
+    restoreFromStorage() {
+        if (!this.storage) return;
+        this.loadSlotsFromStorage();
+        this.cleanupLegacyStorage();
+        this.applySlotState(this.activeSlot);
         this.loadVoicePreferences();
     }
 
@@ -328,15 +635,17 @@ class SpeechApp {
     }
 
     saveContentToStorage(text) {
-        this.safeSetItem(this.storageKeys.text, text);
+        const slot = this.getSlotState(this.activeSlot);
+        if (!slot) return;
+        slot.text = text;
+        this.saveSlotsToStorage();
     }
 
     saveProgressToStorage() {
-        const payload = {
-            text: this.textInput.value,
-            index: this.currentChunkIndex
-        };
-        this.safeSetItem(this.storageKeys.progress, JSON.stringify(payload));
+        const slot = this.getSlotState(this.activeSlot);
+        if (!slot) return;
+        slot.progress = this.currentChunkIndex;
+        this.saveSlotsToStorage();
     }
 
     safeSetItem(key, value) {
@@ -353,12 +662,14 @@ class SpeechApp {
         const textChanged = currentText !== this.lastStoredText;
 
         if (textChanged) {
+            this.resetClearConfirm();
             this.lastStoredText = currentText;
             this.saveContentToStorage(currentText);
             this.currentChunkIndex = 0;
             this.chunks = [];
             this.updateChunkDisplay('');
             this.saveProgressToStorage();
+            this.setPlayStatus('stopped');
 
             if (this.isPlaying || this.isPaused) {
                 this.cancelPlayback();
@@ -371,6 +682,8 @@ class SpeechApp {
         } else {
             this.saveContentToStorage(currentText);
         }
+
+        this.updatePasteButtonState();
 
         if (!this.autoDetectToggle || !this.autoDetectToggle.checked) return;
 
@@ -1155,6 +1468,7 @@ class SpeechApp {
         this.isPlaying = true;
         this.isPaused = false;
         this.updateButtonsState();
+        this.setPlayStatus('playing');
 
         if (this.voices.length === 0) {
             this.voices = this.synth.getVoices();
@@ -1257,6 +1571,7 @@ class SpeechApp {
         this.isPlaying = true;
         this.synth.resume();
         this.updateButtonsState();
+        this.setPlayStatus('playing');
     }
 
     handlePause() {
@@ -1267,6 +1582,7 @@ class SpeechApp {
         this.isPaused = true;
         this.synth.pause();
         this.updateButtonsState();
+        this.setPlayStatus('paused');
     }
 
     handleStop() {
@@ -1280,6 +1596,7 @@ class SpeechApp {
         this.updateChunkDisplay('');
 
         this.updateButtonsState();
+        this.setPlayStatus('stopped');
     }
 
     cancelPlayback() {
@@ -1324,6 +1641,7 @@ class SpeechApp {
             this.btnPlayPause.setAttribute('aria-label', 'Pause');
             this.btnStop.disabled = false;
             this.btnRewind.disabled = false;
+            if (this.btnForward) this.btnForward.disabled = false;
         } else {
             iconPlay.classList.remove('hidden');
             iconPause.classList.add('hidden');
@@ -1332,9 +1650,11 @@ class SpeechApp {
             if (this.isPaused) {
                 this.btnStop.disabled = false;
                 this.btnRewind.disabled = false;
+                if (this.btnForward) this.btnForward.disabled = false;
             } else {
                 this.btnStop.disabled = true;
                 this.btnRewind.disabled = true;
+                if (this.btnForward) this.btnForward.disabled = true;
             }
         }
     }

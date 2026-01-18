@@ -4,18 +4,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Read Aloud</title>
-    <meta name="description" content="Read Aloud is a lightweight text-to-speech reader with auto language detection and chunked playback.">
+    <title>Read It</title>
+    <meta name="description" content="Read It is a lightweight text-to-speech reader with auto language detection and chunked playback.">
     <meta name="author" content="SPACESODA">
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="https://spacesoda.github.io/read-aloud">
-    <meta property="og:title" content="Read Aloud">
+    <meta property="og:title" content="Read It">
     <meta property="og:description" content="A lightweight text-to-speech reader with auto language detection and chunked playback.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://spacesoda.github.io/read-aloud">
     <meta name="theme-color" content="#0A84FF">
     <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-title" content="Read Aloud">
+    <meta name="apple-mobile-web-app-title" content="Read It">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="manifest" href="manifest.webmanifest">
@@ -37,7 +37,7 @@
             <div class="header-bar">
                 <h1>
                     <img src="icons/apple-touch-icon.png" alt="" class="app-logo" aria-hidden="true">
-                    Read Aloud
+                    Read It
                 </h1>
                 <a class="github-link" href="https://github.com/SPACESODA/read-aloud" target="_blank" rel="noopener noreferrer" aria-label="View source on GitHub">
                     <svg viewBox="0 0 24 24" aria-hidden="true" class="github-icon">
@@ -50,8 +50,23 @@
         <main>
             <div id="chunk-display" class="chunk-display hidden"></div>
             <div class="input-area">
+                <div class="input-toolbar">
+                    <div class="slot-buttons" role="group" aria-label="Sections">
+                        <button class="slot-button is-active" type="button" data-slot="1" aria-label="Section 1" aria-pressed="true">1</button>
+                        <button class="slot-button" type="button" data-slot="2" aria-label="Section 2" aria-pressed="false">2</button>
+                        <button class="slot-button" type="button" data-slot="3" aria-label="Section 3" aria-pressed="false">3</button>
+                        <button class="slot-button" type="button" data-slot="4" aria-label="Section 4" aria-pressed="false">4</button>
+                        <button class="slot-button" type="button" data-slot="5" aria-label="Section 5" aria-pressed="false">5</button>
+                    </div>
+                    <button id="btn-paste" class="input-action" type="button" aria-label="Paste from clipboard">Paste</button>
+                </div>
                 <textarea id="text-input" placeholder="Paste your text here..." spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" data-gramm="false" data-gramm_editor="false" data-enable-grammarly="false"></textarea>
-                <p id="chrome-tip" class="helper-text" hidden>Tip: On desktop, Edge offers Microsoft natural voices; Chrome offers Google voices.</p>
+                <div class="auto-detect">
+                    <label for="auto-detect" id="auto-detect-label">
+                        <input type="checkbox" id="auto-detect" checked>
+                        <span id="auto-detect-text">Auto-detect language</span>
+                    </label>
+                </div>
             </div>
 
             <div class="controls-area">
@@ -59,12 +74,7 @@
                     <select id="voice-select" aria-label="Voice selection">
                         <option value="" disabled selected>Loading voices...</option>
                     </select>
-                    <div class="auto-detect">
-                        <label for="auto-detect" id="auto-detect-label">
-                            <input type="checkbox" id="auto-detect" checked>
-                            <span id="auto-detect-text">Auto-detect language</span>
-                        </label>
-                    </div>
+                    <p id="chrome-tip" class="helper-text" hidden>💡 On desktop, Edge offers Microsoft natural voices; Chrome offers Google voices.</p>
                 </div>
 
                 <div class="playback-controls">
@@ -79,6 +89,11 @@
                         </svg>
                         <svg viewBox="0 0 24 24" fill="currentColor" class="icon icon-pause hidden">
                             <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                        </svg>
+                    </button>
+                    <button id="btn-forward" class="btn btn-secondary hide-on-mobile" aria-label="Next Section" data-umami-event="read | Skip Button">
+                        <svg viewBox="0 0 24 24" fill="currentColor" class="icon">
+                            <path d="M6 6v12l8.5-6L6 6zm10 0h2v12h-2z" />
                         </svg>
                     </button>
                     <button id="btn-stop" class="btn btn-secondary" aria-label="Stop" data-umami-event="read | Stop Button" disabled>

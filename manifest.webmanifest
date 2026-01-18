@@ -1,6 +1,6 @@
 {
-    "name": "Read Aloud",
-    "short_name": "Read Aloud",
+    "name": "Read It",
+    "short_name": "Read It",
     "description": "A lightweight text-to-speech reader with auto language detection and chunked playback.",
     "start_url": ".",
     "scope": ".",

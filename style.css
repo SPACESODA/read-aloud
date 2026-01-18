@@ -3,6 +3,7 @@
     --surface-color: #1C1C1E;
     --primary-color: #0A84FF;
     --primary-hover: #0077ED;
+    --danger-color: #FF453A;
     --text-primary: #FFFFFF;
     --text-secondary: #8E8E93;
     --border-radius: 16px;
@@ -62,7 +63,7 @@ header .header-bar {
 header h1 {
     font-size: 1.15rem;
     font-weight: 600;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.025em;
     color: var(--text-secondary);
     margin: 0;
     display: inline-flex;
@@ -82,21 +83,21 @@ header h1 {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
     color: var(--text-secondary);
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: none;
+    border: none;
+    padding: 0;
     text-decoration: none;
-    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    transition: color 0.2s ease;
 }
 
-.github-link:hover,
+.github-link:hover {
+    color: var(--text-primary);
+}
+
 .github-link:focus-visible {
     color: var(--text-primary);
-    background: rgba(255, 255, 255, 0.12);
-    border-color: rgba(255, 255, 255, 0.18);
+    outline: none;
 }
 
 .github-icon {
@@ -124,6 +125,86 @@ main {
     gap: 8px;
 }
 
+.input-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.slot-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.slot-button {
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.slot-button:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: var(--text-primary);
+}
+
+.slot-button:focus-visible {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: #ffffff;
+    color: var(--text-primary);
+    outline: none;
+}
+
+.slot-button.is-active {
+    background: var(--primary-color);
+    border-color: transparent;
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(10, 132, 255, 0.3);
+}
+
+.input-action {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-primary);
+    font-size: 0.8rem;
+    padding: 6px 12px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.input-action:hover,
+.input-action:focus-visible {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.2);
+    outline: none;
+}
+
+.input-action.is-confirm {
+    background: rgba(255, 69, 58, 0.18);
+    border-color: rgba(255, 69, 58, 0.7);
+    color: var(--danger-color);
+}
+
+.input-action.is-confirm:hover,
+.input-action.is-confirm:focus-visible {
+    background: rgba(255, 69, 58, 0.28);
+    border-color: rgba(255, 69, 58, 0.9);
+}
+
+.input-toolbar .input-action {
+    margin-left: auto;
+}
+
 textarea {
     flex: 1;
     width: 100%;
@@ -147,6 +228,10 @@ textarea {
     font-size: 0.82rem;
     color: var(--text-secondary);
     line-height: 1.4;
+}
+
+#chrome-tip {
+    text-align: center;
 }
 
 textarea:focus {
@@ -323,11 +408,21 @@ select {
         padding: 18px;
         font-size: 1.25rem;
     }
+
+    .hide-on-mobile {
+        display: none;
+    }
 }
 
 @media (max-width: 520px) {
     .voice-select-wrapper {
         gap: 6px;
+    }
+
+    .slot-button {
+        width: 28px;
+        height: 28px;
+        font-size: 0.78rem;
     }
 
     .auto-detect {
