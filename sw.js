@@ -1,11 +1,14 @@
 self.addEventListener('install', (event) => {
     event.waitUntil(
-        caches.open('read-aloud-v4').then((cache) => {
+        caches.open('read-aloud-v5').then((cache) => {
             return cache.addAll([
                 './',
                 './index.html',
                 './style.css',
-                './app.js',
+                './js/app.js',
+                './js/ui.js',
+                './js/storage.js',
+                './js/speech.js',
                 './manifest.webmanifest',
                 './icons/android-chrome-192x192.png',
                 './icons/android-chrome-512x512.png',
@@ -23,7 +26,7 @@ self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys().then((keys) => {
             return Promise.all(
-                keys.map((key) => (key === 'read-aloud-v4' ? null : caches.delete(key)))
+                keys.map((key) => (key === 'read-aloud-v5' ? null : caches.delete(key)))
             );
         })
     );
