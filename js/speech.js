@@ -288,13 +288,20 @@ export const speechMethods = {
     },
 
     applyAutoDetectIfNeeded({ force = false } = {}) {
-        if (!this.autoDetectToggle || !this.autoDetectToggle.checked) return;
+        if (!this.autoDetectToggle || !this.autoDetectToggle.checked) {
+            this.detectedLang = '';
+            this.clearVoiceFilter();
+            this.updateDocumentLanguage('en');
+            this.updateDetectedLangLabel('');
+            return;
+        }
         if (!this.textInput) return;
         this.applyAutoDetect(this.textInput.value, { force });
     },
 
     applyAutoDetect(text, { force = false } = {}) {
         if (!this.autoDetectToggle || !this.autoDetectToggle.checked) {
+            this.clearVoiceFilter();
             this.updateDocumentLanguage('en');
             this.updateDetectedLangLabel('');
             return;
