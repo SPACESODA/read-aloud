@@ -46,9 +46,6 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
         fetch(event.request)
             .then((networkResponse) => {
-                if (!networkResponse) {
-                    return caches.match(event.request);
-                }
                 if (!networkResponse.ok) {
                     return networkResponse;
                 }
